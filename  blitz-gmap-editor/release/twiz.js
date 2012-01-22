@@ -14,6 +14,15 @@ var BlitzMap = new function(){
 	var notifyErrors = true;
 	var colorPicker;
 	var mapContainerId, sideBar, mapDiv, mapStorageId;
+	var routeUnit = "metric";
+	var dirRenderer;
+	var dirService;
+	var dirTravelMode;
+	var dirAvoidHighways = false;
+	var dirAvoidTolls = false;
+	var dirProvideRouteAlternatives = false; 
+	var dirRouteUnit;
+	var dirOptimizeWaypoints = false; 
 
 	/*****************************************
 	 * 
@@ -22,6 +31,7 @@ var BlitzMap = new function(){
 	 *  
 	 *****************************************/
 	this.init = function() {
+		
 		
 		var mapOptions = {
 				center: new google.maps.LatLng( 19.006295, 73.309021 ),
@@ -73,11 +83,22 @@ var BlitzMap = new function(){
 				setMapData( document.getElementById( mapStorageId ).value  );
 			}
 			
-			 var ctaLayer = new google.maps.KmlLayer('http://possible.in/test1.kml');
+			 //var ctaLayer = new google.maps.KmlLayer('http://possible.in/test3.kml');
 			 //ctaLayer.setMap(mapObj);
-			    
+			dirRenderer = new google.maps.DirectionsRenderer();
+			dirRenderer.setMap( mapObj );
+			dirRenderer.setPanel( document.getElementById( mapContainerId + '_directions' ) );
+			dirService = new google.maps.DirectionsService();
+			dirTravelMode = google.maps.TravelMode.DRIVING;
+			dirAvoidHighways = false;
+			dirAvoidTolls = false;
+			dirProvideRouteAlternatives = false; 
+			dirRouteUnit = google.maps.UnitSystem.METRIC;
+			dirOptimizeWaypoints = true;
 		}
 	    
+		
+		
 	}
 	
 	
@@ -97,19 +118,51 @@ var BlitzMap = new function(){
 				mapContainerId = divId;
 				mapDiv = document.createElement('div');
 				mapDiv.id = divId + "_map";
-				mapDiv.style.height =  "100%";
-				mapDiv.style.width = "100%";
+				setStyle( mapDiv, { height: "100%", width: "100%", position:"absolute", "zIndex":1, left:"0" } );
 				
 				document.getElementById( mapContainerId ).appendChild( mapDiv );
 				
 				sideBar = document.createElement('div');
-				sideBar.id = divId + "_sizebar";
-				sideBar.style.height = "100%";
-				sideBar.style.width = "30%";
-				sideBar.style.float = "right";
-				sideBar.style.display = "none";
-				document.getElementById( mapContainerId ).appendChild( sideBar );
+				sideBar.id = divId + "_sidebar";
+				setStyle( sideBar, { height: "100%", width: "250px", display:"none", "backgroundColor":"#ddd", "borderLeft":"5px solid #999", position:"absolute", "zIndex":"1", right:"0", fontFamily:"Arial", overflowY:'auto' } );
 				
+				document.getElementById( mapContainerId ).appendChild( sideBar );
+				setStyle( document.getElementById( mapContainerId ), { position:"relative" } );
+				sideBar.innerHTML =
+					  '<div style="padding:10px 0 0 26px;">'
+					+ '<style> div#'+ sideBar.id +' a.travelMode{ height:37px;width:32px;display:block;float:left;margin:0; background-position:bottom;background-repeat:no-repeat;outline:0;}'
+					+ ' div#'+ sideBar.id +' a.travelMode:hover{ cursor:pointer; background-position:top;}'
+					+ ' div#'+ sideBar.id +' span.route_row_menu{ font-size:12px;font-family:Arial; color:#ff0000; cursor:pointer; } '
+					+ ' div#'+divId + '_route div.route_row span{ width:20px;height:20px;display:inline-block; text-align:center; } '
+					+ ' div#'+divId + '_route_options{ font-size:12px; } '
+					+ ' div#'+divId + '_directions{ font-size:12px; }'
+					+ '</style>'
+					+ '<a id="'+divId + '_mode_drive" href="javascript:void(0)" class="travelMode" style="background-image:url(images/car.png);background-position:top;" onclick="BlitzMap.setTravelMode( google.maps.TravelMode.DRIVING, this )" ></a>'
+					+ '<a id="'+divId + '_mode_walk" href="javascript:void(0)" class="travelMode" style="background-image:url(images/walk.png);" onclick="BlitzMap.setTravelMode( google.maps.TravelMode.WALKING, this)"></a>'
+					+ '<a id="'+divId + '_mode_bicycle" href="javascript:void(0)" class="travelMode" style="background-image:url(images/bicycle.png);" onclick="BlitzMap.setTravelMode( google.maps.TravelMode.BICYCLING, this )"></a>'					
+					//+ '<a id="'+divId + '_mode_public" href="javascript:void(0)" class="travelMode" style="background-image:url(images/public.png);" onclick="BlitzMap.setTravelMode( google.maps.TravelMode.PUBLIC, this )"></a>'
+					+ '<div style="clear:both;"></div>'
+					+ '</div>'
+					+ '<div id="'+divId + '_route" style="margin:5px 5px 10px;">'
+					+ '<div id="'+divId + '_route_row_0" class="route_row"><span id="'+mapContainerId+'_route_row_0_title">A</span> <input  id="'+mapContainerId+'_route_row_0_dest" type="text" /><img id="'+mapContainerId+'_route_row_0_remove" alt="X" height="20" width="20" onclick="BlitzMap.removeDestination(this)" style="cursor:pointer;display:none;" /></div>'
+					+ '<div id="'+divId + '_route_row_1" class="route_row"><span id="'+mapContainerId+'_route_row_1_title">B</span> <input  id="'+mapContainerId+'_route_row_1_dest" type="text" /><img id="'+mapContainerId+'_route_row_1_remove" alt="X" height="20" width="20" onclick="BlitzMap.removeDestination(this)" style="cursor:pointer;display:none;" /></div>'
+					+ '</div>'
+					+ '<div id="'+divId + '_route_menu" style="margin:10px 5px;">'
+					+ '<span class="route_row_menu" onclick="BlitzMap.addDestination()">Add destination</span> - '
+					+ '<span id="'+divId + '_route_opt_btn" class="route_row_menu" onclick="BlitzMap.toggleRouteOptions()">Show Options</span>'
+					+ '</div>'
+					+ '<div id="'+divId + '_route_options" style="margin:10px 5px;display:none;">'
+					+ '<div style="float:right">'
+					+ '<span id="'+divId + '_route_unit_km" onclick="BlitzMap.setRouteUnit( google.maps.UnitSystem.METRIC )">Km</span> / '
+					+ '<span id="'+divId + '_route_unit_mi" class="route_row_menu"  onclick="BlitzMap.setRouteUnit( google.maps.UnitSystem.IMPERIAL )">Miles</span>'
+					+ '</div>'
+					+ '<input id="'+divId + '_route_avoid_hw" type="checkbox" value="avoidHighways" onclick="BlitzMap.setAvoidHighways(this)" /><label for="'+divId + '_route_avoid_hw">Avoid highways</label><br/>'
+					+ '<input id="'+divId + '_route_avoid_toll" type="checkbox" value="avoidTolls" onclick="BlitzMap.setAvoidTolls(this)" /><label for="'+divId + '_route_avoid_toll">Avoid tolls</label> '
+					+ '</div>'
+					+ '<input type="button" onclick="BlitzMap.getRoute()" value="Get Directions">'
+					+ '<div style="clear:both;"></div>'
+					+ '<div id="'+divId + '_directions" style="">'
+					+ '</div>';
 			}else{
 				notify( "BlitzMap Error: The DIV id you supplied for generating GMap is not present in the document." );
 			}
@@ -130,6 +183,141 @@ var BlitzMap = new function(){
 				notify( "BlitzMap Error: The INPUT id you supplied for storing the JSON string is not present in the document." );
 			}
 		}
+	}
+	
+	this.setAvoidHighways = function( obj ){
+		dirAvoidHighways = obj.checked;
+	}
+	
+	this.setAvoidTolls = function( obj ){
+		dirAvoidTolls = obj.checked;
+	}
+	
+	this.setTravelMode = function( mode, menuObj ){
+		dirTravelMode = mode;
+		setStyle( document.getElementById( mapContainerId + '_mode_drive' ), { backgroundPosition: "bottom" } );
+		setStyle( document.getElementById( mapContainerId + '_mode_walk' ), { backgroundPosition: "bottom" } );
+		setStyle( document.getElementById( mapContainerId + '_mode_bicycle' ), { backgroundPosition: "bottom" } );
+		setStyle( menuObj, { backgroundPosition: "top" } );
+	}
+	
+	this.getRoute = function(){
+		var start, end;
+		var waypts = [];
+		var routeDiv = document.getElementById( mapContainerId + '_route' );
+		
+		for( var i=0; i < routeDiv.children.length; i++ ){
+			if( i== 0 ){
+				start = routeDiv.children[i].children[1].value;
+			}else if( i== routeDiv.children.length-1 ){
+				end = routeDiv.children[i].children[1].value;
+			}else{
+				waypts.push({
+					location:routeDiv.children[i].children[1].value,
+					stopover:true
+				});
+			}
+		}
+
+		var request = {
+				origin: start,
+				destination: end,
+				waypoints: waypts,
+				optimizeWaypoints: false,
+				travelMode: dirTravelMode,
+				avoidHighways: dirAvoidHighways,
+				avoidTolls: dirAvoidTolls,
+				provideRouteAlternatives: dirProvideRouteAlternatives,
+				unitSystem: dirRouteUnit,
+				optimizeWaypoints: dirOptimizeWaypoints
+		  };
+		
+		dirService.route(request, function(response, status) {
+		    if (status == google.maps.DirectionsStatus.OK) {
+		      dirRenderer.setDirections(response);
+		      /*var route = response.routes[0];
+		      var summaryPanel = document.getElementById("directions_panel");
+		      summaryPanel.innerHTML = "";
+		      // For each route, display summary information.
+		      for (var i = 0; i < route.legs.length; i++) {
+		        var routeSegment = i+1;
+		        summaryPanel.innerHTML += "<b>Route Segment: " + routeSegment + "</b><br />";
+		        summaryPanel.innerHTML += route.legs[i].start_address + " to ";
+		        summaryPanel.innerHTML += route.legs[i].end_address + "<br />";
+		        summaryPanel.innerHTML += route.legs[i].distance.text + "<br /><br />";
+		      }*/
+		    }
+		  });
+
+	}
+	
+	
+	
+	this.addDestination = function(){
+		var routeDiv = document.getElementById( mapContainerId + '_route' );
+		var routeNum = routeDiv.children.length;
+		if( routeNum == 8 ){
+			alert( "You have reached maximum number of destinations that can be searched with Google Directions API." )
+			return;
+		}
+		var newDest = document.createElement('div');
+		newDest.id = mapContainerId +'_route_row_'+ routeNum.toString();
+		newDest.className = 'route_row';
+		
+		newDest.innerHTML = '<span id="'+mapContainerId+'_route_row_'+routeNum+'_title">'+String.fromCharCode(65+routeNum)+'</span> '
+							+ '<input id="'+mapContainerId+'_route_row_'+routeNum+'_dest" type="text" />'
+							+ '<img id="'+mapContainerId+'_route_row_'+routeNum+'_remove" alt="X" height="20" width="20" onclick="BlitzMap.removeDestination(this)" style="cursor:pointer" />';
+		routeDiv.appendChild( newDest );
+		for( var i=0; i < routeDiv.children.length; i++ ){
+			if( i<2 && routeDiv.children.length <= 2 ){
+				routeDiv.children[i].children[2].style.display = "none";
+			}else{
+				routeDiv.children[i].children[2].style.display = "inline";
+			}
+		}
+	}
+	
+	this.removeDestination = function( obj ){
+		var rowDiv = obj.parentNode;
+		var routeDiv = rowDiv.parentNode;
+		routeDiv.removeChild( rowDiv );
+		
+		for( var i=0; i < routeDiv.children.length; i++ ){
+			routeDiv.children[i].id = mapContainerId+'_route_row_'+i;
+			routeDiv.children[i].children[0].id = mapContainerId+'_route_row_'+i+'_title';
+			routeDiv.children[i].children[0].innerHTML = String.fromCharCode(65+i)
+			routeDiv.children[i].children[1].id = mapContainerId+'_route_row_'+i+'_dest';
+			
+			routeDiv.children[i].children[2].id = mapContainerId+'_route_row_'+i+'_remove'
+			if( i<2 && routeDiv.children.length <= 2 ){
+				routeDiv.children[i].children[2].style.display = "none";
+			}else{
+				routeDiv.children[i].children[2].style.display = "inline";
+			}
+		}
+	}
+
+	this.setRouteUnit = function( unt ){
+		dirRouteUnit = unt;
+		if( dirRouteUnit == google.maps.UnitSystem.IMPERIAL ){
+			document.getElementById( mapContainerId + '_route_unit_mi' ).className = "";
+			document.getElementById( mapContainerId + '_route_unit_km' ).className = "route_row_menu";
+		}else{
+			document.getElementById( mapContainerId + '_route_unit_mi' ).className = "route_row_menu";
+			document.getElementById( mapContainerId + '_route_unit_km' ).className = "";
+		}
+	}
+	
+	this.toggleRouteOptions = function(){
+		if( getStyle( document.getElementById( mapContainerId + "_route_options" ), "display" ) == "block" ){
+			setStyle( document.getElementById( mapContainerId + "_route_options" ), { display:"none" } );
+			document.getElementById( mapContainerId + "_route_opt_btn" ).innerHTML = "Show Options";
+			
+		}else{
+			setStyle( document.getElementById( mapContainerId + "_route_options" ), { display:"block" } );
+			document.getElementById( mapContainerId + "_route_opt_btn" ).innerHTML = "Hide Options";
+		}
+		
 	}
 	
 	
@@ -163,16 +351,10 @@ var BlitzMap = new function(){
 			google.maps.event.addListener( overlay, "click", function(clkEvent){
 			  
 			  if( isEditable ){
-				  infWindow.setOptions( {maxWidth :400});
 				  var infContent = 	getEditorContent( overlay );
 				  
 			  }else{
-				  var infContent = 
-					  '<div><h3>'+overlay.title+'"</h3>'+overlay.content+'<br>'
-					  + '<input type="button" value="test" onclick="BlitzMap.test()"/>'
-					  + '<div id="'+mapContainerId+'_dirContainer"><input type="text" id="'+mapContainerId+'_dir" /></div>'
-					  + '</div>';
-				  
+				  var infContent = GetContent( overlay );
 			  }
 			  
 			  openInfowindow( overlay, clkEvent.latLng, infContent );
@@ -181,12 +363,33 @@ var BlitzMap = new function(){
 		
 	}
 	
+	function GetContent( overlay ){
+		var content =
+			'<div><h3>'+overlay.title+'"</h3>'+overlay.content+'<br></div>'
+			+ GetInfoWindowFooter( overlay );
+		return content;
+	}
 	
-	this.test = function(){
-		mapDiv.setStyle( "width", "70%" );
+	function GetInfoWindowFooter( overlay ){
+		var content =
+			'<div id="'+mapContainerId+'_dirContainer" style="bottom:0;padding-top:3px; font-size:13px;font-family:arial">'
+		  + '<div  style="border-top:1px dotted #999;">'
+		  + '<style>.BlitzMap_Menu:hover{text-decoration:underline; }</style>'
+		  + '<span class="BlitzMap_Menu" style="color:#ff0000; cursor:pointer;padding:0 5px;" onclick="BlitzMap.getDirections()">Directions</span>'
+		  + '<span class="BlitzMap_Menu" style="color:#ff0000; cursor:pointer;padding:0 5px;">Search nearby</span>'
+		  + '<span class="BlitzMap_Menu" style="color:#ff0000; cursor:pointer;padding:0 5px;">Save to map</span>'
+		  + '</div></div>';
+		return content;
+	}
+	
+	
+	
+	this.getDirections = function(){
+		setStyle( sideBar, { display: "block" } );
+		setStyle( mapDiv, { width: "70%"} );
 		google.maps.event.trigger(mapObj, 'resize');
-		mapObj.panTo( mapObj.getBounds() );
-		sideBar.setStyle( "display", "block" );
+		//mapObj.panTo( mapObj.getBounds() );
+		
 	}
 	
 	
@@ -194,7 +397,7 @@ var BlitzMap = new function(){
 	function openInfowindow( overlay, latLng, content ){
 		var div = document.createElement('div');
 		div.innerHTML = content; 
-		div.setStyle( "height", "100%");
+		setStyle( div, {height: "100%"} );
 		infWindow.setContent( div );
 		infWindow.setPosition( latLng );
 		infWindow.relatedOverlay = overlay;
@@ -292,7 +495,7 @@ var BlitzMap = new function(){
 		if( infWindow.relatedOverlay.type == 'polygon' || infWindow.relatedOverlay.type == 'circle' || infWindow.relatedOverlay.type == 'rectangle' ){
 		
 			infWindow.relatedOverlay.setOptions( {fillColor: '#'+document.getElementById( 'BlitzMapInfoWindow_fillcolor' ).value.replace('#','') } );
-			document.getElementById( 'BlitzMapInfoWindow_fillcolor' ).setStyle( "background-color", '#'+document.getElementById( 'BlitzMapInfoWindow_fillcolor' ).value.replace('#','') );
+			setStyle( document.getElementById( 'BlitzMapInfoWindow_fillcolor' ), { 'background-color': '#'+document.getElementById( 'BlitzMapInfoWindow_fillcolor' ).value.replace('#','') } );
 			
 			infWindow.relatedOverlay.setOptions( {fillOpacity: Number( document.getElementById( 'BlitzMapInfoWindow_fillopacity' ).value ) } );
 		}
@@ -313,15 +516,15 @@ var BlitzMap = new function(){
 		var tmp = document.getElementById( 'BlitzMapInfoWindow_details' );
 		var tmp1 = document.getElementById( 'BlitzMapInfoWindow_styles' );
 		if( tmp ){
-			if( tmp.getStyle("display" ) == 'none' ){
-				tmp1.setStyle("display", "none" );
+			if( getStyle( tmp, "display" ) == 'none' ){
+				setStyle( tmp1, { display: "none" } );
 				document.getElementById( 'BlitzMapInfoWindow_toggle' ).value = "Customize Colors>>"
-				tmp.setStyle("display", "block" );
+				setStyle( tmp, { display: "block" } );
 				
 			}else{
-				tmp.setStyle("display", "none" );
+				setStyle( tmp, { display: "none" } );
 				document.getElementById( 'BlitzMapInfoWindow_toggle' ).value = "Back>>"
-				tmp1.setStyle("display", "block" );
+				setStyle( tmp1, { display: "block" } );
 			}
 			
 		}
@@ -643,7 +846,31 @@ var BlitzMap = new function(){
 		  //set the xml
 		  document.getElementById('kmlString').value = xml;
 	  }
-	
+	  
+	  function getStyle( elem, prop ){
+	  	
+	     if( document.defaultView.getComputedStyle ){
+	    	 return document.defaultView.getComputedStyle(elem, null).getPropertyValue(prop);
+	     }else if( elem.currentStyle ){
+	    	 var ar = prop.match(/\w[^-]*/g);
+	    	 var s = ar[0];
+	    	 for(var i = 1; i < ar.length; ++i){
+	    		 s += ar[i].replace(/\w/, ar[i].charAt(0).toUpperCase());
+	    	 }
+	    	 return elem.currentStyle[s];
+	     }else{
+	    	 return 0;
+	     }
+	  }
+	  
+	  function setStyle( domElem, styleObj ){
+		  	
+	     if( typeof styleObj == "object" ){
+	    	 for( var prop in styleObj ){
+	    		 domElem.style[ prop ] = styleObj[ prop ];
+	    	 }
+	     }
+	  }
 }
 
 google.maps.event.addDomListener(window, "load", BlitzMap.init);
