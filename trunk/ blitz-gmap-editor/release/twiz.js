@@ -788,7 +788,7 @@ var BlitzMap = new function(){
 		  					xw.writeStartElement('Point');
 		  						xw.writeElementString('extrude', '1');
 		  						xw.writeElementString('altitudeMode', 'relativeToGround');
-		  						xw.writeElementString('coordinates', result.overlays[i].position.lat.toString()+","+result.overlays[i].position.lng.toString()+",0");
+		  						xw.writeElementString('coordinates', result.overlays[i].position.lng.toString()+","+result.overlays[i].position.lat.toString()+",0");
 	  						xw.writeEndElement();
 			  				
 			  			}else if( result.overlays[i].type == "polygon" || result.overlays[i].type == "rectangle"  ){
@@ -801,10 +801,10 @@ var BlitzMap = new function(){
 	  								xw.writeStartElement('outerBoundaryIs');
 	  									xw.writeStartElement('LinearRing');
 	  			  							xw.writeStartElement( "coordinates" );
-				  								xw.writeString( result.overlays[i].bounds.sw.lat + "," + result.overlays[i].bounds.sw.lng + ",0" );
-				  								xw.writeString( result.overlays[i].bounds.ne.lat + "," + result.overlays[i].bounds.sw.lng + ",0" );
-				  								xw.writeString( result.overlays[i].bounds.ne.lat + "," + result.overlays[i].bounds.ne.lng + ",0" );
-				  								xw.writeString( result.overlays[i].bounds.sw.lat + "," + result.overlays[i].bounds.ne.lng + ",0" );
+				  								xw.writeString( result.overlays[i].bounds.sw.lng + "," + result.overlays[i].bounds.sw.lat + ",0" );
+				  								xw.writeString( result.overlays[i].bounds.ne.lng + "," + result.overlays[i].bounds.sw.lat + ",0" );
+				  								xw.writeString( result.overlays[i].bounds.ne.lng + "," + result.overlays[i].bounds.ne.lat + ",0" );
+				  								xw.writeString( result.overlays[i].bounds.sw.lng + "," + result.overlays[i].bounds.ne.lat + ",0" );
 				  							xw.writeEndElement();
 				  						xw.writeEndElement();
 			  						xw.writeEndElement();
@@ -818,7 +818,7 @@ var BlitzMap = new function(){
 			  								xw.writeStartElement('LinearRing');
 		  			  							xw.writeStartElement( "coordinates" );
 					  							for( var k=0; k < result.overlays[i].paths[j].length; k++ ){
-					  								xw.writeString( result.overlays[i].paths[j][k].lat + "," + result.overlays[i].paths[j][k].lng + ",0" );
+					  								xw.writeString( result.overlays[i].paths[j][k].lng + "," + result.overlays[i].paths[j][k].lat + ",0" );
 					  							}	
 					  							xw.writeEndElement();
 					  						xw.writeEndElement();
@@ -833,7 +833,7 @@ var BlitzMap = new function(){
 		  						xw.writeElementString('altitudeMode', 'relativeToGround');
 		  						xw.writeStartElement( "coordinates" );
 		  						for( var j=0; j < result.overlays[i].path.length; j++ ){
-	  								xw.writeString( result.overlays[i].path[j].lat + "," + result.overlays[i].path[j].lng + ",0" );
+	  								xw.writeString( result.overlays[i].path[j].lng + "," + result.overlays[i].path[j].lat + ",0" );
 		  						}	
 			  					xw.writeEndElement();
 			  				xw.writeEndElement();
