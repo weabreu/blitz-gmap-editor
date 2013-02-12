@@ -372,7 +372,7 @@ var BlitzMap = new function(){
 	
 	function GetContent( overlay ){
 		var content =
-			'<div><h3>'+overlay.title+'"</h3>'+overlay.content+'<br></div>'
+			'<div><h3>'+overlay.title+'</h3>'+overlay.content+'<br></div>'
 			+ GetInfoWindowFooter( overlay );
 		return content;
 	}
@@ -856,7 +856,7 @@ var BlitzMap = new function(){
 	  
 	  function getStyle( elem, prop ){
 	  	
-	     if( document.defaultView.getComputedStyle ){
+	     if( document.defaultView && document.defaultView.getComputedStyle ){
 	    	 return document.defaultView.getComputedStyle(elem, null).getPropertyValue(prop);
 	     }else if( elem.currentStyle ){
 	    	 var ar = prop.match(/\w[^-]*/g);
