@@ -1,6 +1,3 @@
-
-
-
 /*****************************************
  * 
  * Function BlitzMap()
@@ -22,7 +19,8 @@ var BlitzMap = new function(){
 	var dirAvoidTolls = false;
 	var dirProvideRouteAlternatives = false; 
 	var dirRouteUnit;
-	var dirOptimizeWaypoints = false; 
+	var dirOptimizeWaypoints = false;
+	var geoXml = null;
 
 	/*****************************************
 	 * 
@@ -671,8 +669,133 @@ var BlitzMap = new function(){
 		 
 	}
 	
-	
-	
+        this.setEditable = function(editable){
+          isEditable = editable;
+          for( var i=0; i < mapOverlays.length; i++ ){
+            if( mapOverlays[i].getMap() != null ){
+              mapOverlays[i].setOptions({editable:isEditable});
+            }
+          }
+	} 
+
+        this.toggleEditable = function(){
+          isEditable = !isEditable;
+          for( var i=0; i < mapOverlays.length; i++ ){
+            if( mapOverlays[i].getMap() != null ){
+		if (mapOverlays[i].setEditable) mapOverlays[i].setEditable(isEditable);;
+            }
+          }
+        } 
+
+	this.setMapFromEncoded = function ( encodedString ){
+		if( encodedString.length == 0 ){
+			return false;
+		}
+		var pointsArray = google.maps.geometry.encoding.decodePath( encodedString );
+		var tmpBounds = new google.maps.LatLngBounds();
+                for (var i = 0; i < pointsArray.length; i++)
+		{
+		    tmpBounds.extend(pointsArray[i]);
+		}		
+		var tmpOverlay;
+ 		var ovrOptions = new Object();
+		var properties = new Array( 'fillColor', 'fillOpacity', 'strokeColor', 'strokeOpacity','strokeWeight', 'icon');
+		ovrOptions.strokeWidth = 2;
+                ovrOptions.strokeColor = "#0000FF";
+		ovrOptions.strokeOpacity = 0.8;
+		ovrOptions.fillColor =  "#0000FF";
+		ovrOptions.fillOpacity = 0.2;
+		ovrOptions.paths = [pointsArray];
+		tmpOverlay = new google.maps.Polygon( ovrOptions );
+				
+		tmpOverlay.type = "polygon";
+		tmpOverlay.setMap( mapObj );
+		mapObj.fitBounds(tmpBounds);
+		tmpOverlay.setEditable( true );
+			
+		var uniqueid =  uniqid();
+		tmpOverlay.uniqueid =  uniqueid; 
+		tmpOverlay.title = "";
+		tmpOverlay.content = "";
+			
+		//attach the click listener to the overlay
+		AttachClickListener( tmpOverlay );
+		
+		//save the overlay in the array
+		mapOverlays.push( tmpOverlay );
+	  	
+	}
+		 
+	this.setMapFromKML = function ( kmlString ){
+	    if( kmlString.length == 0 ){
+		return false;
+	    }
+	    if (typeof geoXML3 == "undefined") { // check for include of geoxml3 parser
+                            // http://code.google.com/p/geoxml3/ 
+		alert("geoxml3.js not included");
+		return;
+	    }
+	    if (!geoXml)
+		geoXml = new geoXML3.parser({
+			map: mapObj,
+			zoom: false,
+			suppressInfoWindows: true
+		    });
+
+	    geoXml.parseKmlString( kmlString );
+		
+	    var tmpOverlay, ovrOptions;
+	    for (var m=0; m < geoXml.docs[0].placemarks.length; m++) {
+		if( geoXml.docs[0].placemarks[m].Polygon){
+				
+		    tmpOverlay = geoXml.docs[0].placemarks[m].polygon;
+		    if( isEditable ){
+			tmpOverlay.setEditable( true );
+		    }
+		    tmpOverlay.type = "polygon";
+		}else if( geoXml.docs[0].placemarks[m].LineString){
+				
+		    tmpOverlay = geoXml.docs[0].placemarks[m].polyline;
+		    if( isEditable ){
+			tmpOverlay.setEditable( true );
+		    }
+		    tmpOverlay.type = "polyline";
+		}else if( geoXml.docs[0].placemarks[m].Point){
+
+		    tmpOverlay = geoXml.docs[0].placemarks[m].marker;
+		    tmpOverlay.type = "marker";		}
+			
+			
+		var uniqueid =  uniqid();
+		tmpOverlay.uniqueid =  uniqueid; 
+		if( geoXml.docs[0].placemarks[m].name ){
+		    tmpOverlay.title = geoXml.docs[0].placemarks[m].name;
+		}else{
+		    tmpOverlay.title = "";
+		}
+			
+		if(  geoXml.docs[0].placemarks[m].description ){
+		    tmpOverlay.content =  geoXml.docs[0].placemarks[m].description;
+		}else{
+		    tmpOverlay.content = "";
+		}
+			
+		//attach the click listener to the overlay
+		AttachClickListener( tmpOverlay );
+			
+		//save the overlay in the array
+		mapOverlays.push( tmpOverlay );
+	    }
+            mapObj.fitBounds(geoXml.docs[0].bounds);
+	}
+		 
+	    this.deleteAll = function() {
+	    for( var i=0; i < mapOverlays.length; i++ ){
+		mapOverlays[i].setMap(null)
+	    }
+	    mapOverlays = [];
+	}
+
 	function mapToObject(){
 		var tmpMap = new Object;
 		var tmpOverlay, paths;
@@ -762,7 +885,7 @@ var BlitzMap = new function(){
 		  
 		  return result;
 	  }
-	  
+
 	  this.toKML = function(){
 		  var result = mapToObject();
 		  var xw = new XMLWriter('UTF-8');
@@ -791,7 +914,7 @@ var BlitzMap = new function(){
 		  						xw.writeElementString('coordinates', result.overlays[i].position.lng.toString()+","+result.overlays[i].position.lat.toString()+",0");
 	  						xw.writeEndElement();
 			  				
-			  			}else if( result.overlays[i].type == "polygon" || result.overlays[i].type == "rectangle"  ){
+			  			}else if( result.overlays[i].type == "polygon" || result.overlays[i].type == "rectangle" || result.overlays[i].type == "circle" ){
 		  					xw.writeStartElement('Polygon');
 		  						xw.writeElementString('extrude', '1');
 	  							xw.writeElementString('altitudeMode', 'relativeToGround');
@@ -805,6 +928,34 @@ var BlitzMap = new function(){
 				  								xw.writeString( result.overlays[i].bounds.ne.lng + "," + result.overlays[i].bounds.sw.lat + ",0" );
 				  								xw.writeString( result.overlays[i].bounds.ne.lng + "," + result.overlays[i].bounds.ne.lat + ",0" );
 				  								xw.writeString( result.overlays[i].bounds.sw.lng + "," + result.overlays[i].bounds.ne.lat + ",0" );
+				  							xw.writeEndElement();
+				  						xw.writeEndElement();
+			  						xw.writeEndElement();
+								}if (result.overlays[i].type == "circle"){
+	  								//its a polygon, approximate a circle by a circular 64 sided polygon.
+	  								xw.writeStartElement('outerBoundaryIs');
+	  									xw.writeStartElement('LinearRing');
+	  			  							xw.writeStartElement( "coordinates" );
+											var d2r = Math.PI / 180;   // degrees to radians 
+											var r2d = 180 / Math.PI;   // radians to degrees 
+											var earthsradius = 6378137; // 6378137 is the radius of the earth in meters
+											var dir = 1; // clockwise
+
+											var points = 64; 
+
+											// find the raidus in lat/lon 
+											var rlat = (result.overlays[i].radius / earthsradius) * r2d; 
+											var rlng = rlat / Math.cos(result.overlays[i].center.lat * d2r); 
+
+											var extp = new Array(); 
+											if (dir==1)	{var start=0;var end=points+1} // one extra here makes sure we connect the line
+											else		{var start=points+1;var end=0}
+											for (var j=start; (dir==1 ? j < end : j > end); j=j+dir){ 
+											    var theta = Math.PI * (j / (points/2)); 
+											    ey = result.overlays[i].center.lng + (rlng * Math.cos(theta)); // center a + radius x * cos(theta) 
+											    ex = result.overlays[i].center.lat + (rlat * Math.sin(theta)); // center b + radius y * sin(theta) 
+											    xw.writeString( ey + "," + ex + ",0" );
+											} 
 				  							xw.writeEndElement();
 				  						xw.writeEndElement();
 			  						xw.writeEndElement();
@@ -881,14 +1032,3 @@ var BlitzMap = new function(){
 }
 
 google.maps.event.addDomListener(window, "load", BlitzMap.init);
-
-
-  
-  
-  
-  
-
-  
-
-	
-
